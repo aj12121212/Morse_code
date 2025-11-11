@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="hi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Morse Code Encoder &amp; Decoder</title>
+  <style>
+    :root{--bg:#0f172a;--card:#ffffff;--muted:#64748b;--accent:#06b6d4;--glass:rgba(255,255,255,0.06)}
+    *{box-sizing:border-box;font-family:Inter,system-ui,Segoe UI,Roboto,'Noto Sans',sans-serif}
+    body{margin:0;min-height:100vh;background:linear-gradient(180deg,#071029 0%,#0f172a 100%);color:var(--card);display:flex;align-items:center;justify-content:center;padding:24px}
+    .app{width:100%;max-width:900px;background:linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.02));border-radius:12px;padding:20px;box-shadow:0 8px 30px rgba(2,6,23,0.6)}
+    h1{margin:0 0 8px;font-size:20px}
+    p.lead{margin:0 0 16px;color:var(--muted)}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .card{background:var(--glass);padding:14px;border-radius:10px;border:1px solid rgba(255,255,255,0.03)}
+    label{display:block;margin-bottom:6px;font-weight:600}
+    textarea,input[type="text"]{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:var(--card);resize:vertical;min-height:120px}
+    .controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    button{background:var(--accent);border:0;padding:10px 12px;border-radius:8px;color:#022;cursor:pointer;font-weight:700}
+    button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--card)}
+    .small{padding:8px 10px;font-size:14px}
+    .muted{color:var(--muted);font-size:13px}
+    .morse-sample{font-family:monospace;background:rgba(0,0,0,0.2);padding:10px;border-radius:8px;overflow:auto}
+    .footer{display:flex;justify-content:space-between;align-items:center;margin-top:14px}
+    @media (max-width:880px){.grid{grid-template-columns:1fr} }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1>Morse Code Encoder &amp; Decoder</h1>
+    <p class="lead">Text ko Morse code mein convert karein, ya Morse code ko decode karein. (A–Z, 0–9, common symbols included)</p>
+
+    <div class="grid">
+      <div class="card">
+        <label for="textInput">Text (enter A–Z, a–z, 0–9, symbols)</label>
+        <textarea id="textInput" placeholder="Yahan likhein — jaise: Hello, world!" spellcheck="false"></textarea>
+
+        <div class="controls">
+          <button id="encodeBtn">Encode → Morse</button>
+          <button id="encodePlay" class="ghost small">Encode &amp; Play</button>
+          <button id="clearText" class="ghost small">Clear</button>
+        </div>
+
+        <hr style="opacity:0.06;margin:12px 0">
+
+        <label for="morseOutput">Morse Output</label>
+        <div id="morseOutput" class="morse-sample" aria-live="polite" style="min-height:72px"></div>
+      </div>
+
+      <div class="card">
+        <label for="morseInput">Morse Code (use . for dot, - for dash, separate letters with space and words with / )</label>
+        <textarea id="morseInput" placeholder="··· --- ···  or  ... --- ..." spellcheck="false"></textarea>
+
+        <div class="controls">
+          <button id="decodeBtn">Decode → Text</button>
+          <button id="decodePlay" class="ghost small">Decode &amp; Play</button>
+          <button id="clearMorse" class="ghost small">Clear</button>
+        </div>
+
+        <hr style="opacity:0.06;margin:12px 0">
+
+        <label>Decoded Text</label>
+        <div id="decodedOutput" class="morse-sample" style="min-height:72px"></div>
+      </div>
+    </div>
+
+    <div class="footer muted">Tip: Words ko separate karne ke liye `/` ka use karein (ya ek double space). Example: HELLO / WORLD</div>
+  </div>
+
+  <script>
+    const MORSE_CODE_DICT = {
+      'A': '.-', 'B': '-...', 'C': '-.-.', 'D': '-..', 'E': '.',
+      'F': '..-.', 'G': '--.', 'H': '....', 'I': '..', 'J': '.---',
+      'K': '-.-', 'L': '.-..', 'M': '--', 'N': '-.', 'O': '---',
+      'P': '.--.', 'Q': '--.-', 'R': '.-.', 'S': '...', 'T': '-',
+      'U': '..-', 'V': '...-', 'W': '.--', 'X': '-..-', 'Y': '-.--',
+      'Z': '--..',
+      '0': '-----', '1': '.----', '2': '..---', '3': '...--', '4': '....-', '5': '.....', '6': '-....', '7': '--...', '8': '---..', '9': '----.',
+      '.': '.-.-.-', ',': '--..--', '?': '..--..', "'": '.----.', '!': '-.-.--', '/': '-..-.', '(': '-.--.', ')': '-.--.-', '&': '.-...', ':': '---...', ';': '-.-.-.', '=': '-...-', '+': '.-.-.', '-': '-....-', '_': '..--.-', '"': '.-..-.', '$': '...-..-', '@': '.--.-.', ' ': '/'
+    };
+
+    const REVERSE_MORSE = Object.fromEntries(Object.entries(MORSE_CODE_DICT).map(([k,v]) => [v,k]));
+
+    const textInput = document.getElementById('textInput');
+    const morseOutput = document.getElementById('morseOutput');
+    const morseInput = document.getElementById('morseInput');
+    const decodedOutput = document.getElementById('decodedOutput');
+
+    function encodeTextToMorse(text){
+      text = String(text).toUpperCase();
+      const out = [];
+      for(const ch of text){
+        if(MORSE_CODE_DICT.hasOwnProperty(ch)) out.push(MORSE_CODE_DICT[ch]);
+        else out.push('');
+      }
+      return out.join(' ').replace(/\s+\/\s+/g,' / ');
+    }
+
+    function decodeMorseToText(code){
+      if(!code) return '';
+      code = code.trim().replace(/•/g,'.');
+      const words = code.split(/\s*\/\s*|\s{2,}/);
+      const decodedWords = words.map(w=>{
+        const letters = w.trim().split(/\s+/).filter(Boolean);
+        return letters.map(l=> REVERSE_MORSE[l] || '?').join('');
+      });
+      return decodedWords.join(' ');
+    }
+
+    function playMorse(code, wpm=20){
+      const dot = Math.max(30, Math.round(1200 / wpm));
+      const dash = dot * 3;
+      const gap = dot;
+      const letterGap = dot * 3;
+      const wordGap = dot * 7;
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      let time = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      gain.gain.setValueAtTime(0, time);
+      osc.start(time);
+
+      function tone(duration){
+        gain.gain.linearRampToValueAtTime(0.2, time);
+        time += duration/1000;
+        gain.gain.linearRampToValueAtTime(0, time);
+        time += gap/1000;
+      }
+
+      const words = code.trim().split(/\s*\/\s*|\s{2,}/);
+      words.forEach((w,wi)=>{
+        const letters = w.trim().split(/\s+/).filter(Boolean);
+        letters.forEach((l,li)=>{
+          for(const ch of l){
+            if(ch === '.') tone(dot);
+            else if(ch === '-') tone(dash);
+          }
+          time += (letterGap - gap)/1000;
+        });
+        time += (wordGap - letterGap)/1000;
+      });
+
+      osc.stop(time + 0.02);
+    }
+
+    document.getElementById('encodeBtn').addEventListener('click', ()=>{
+      const morse = encodeTextToMorse(textInput.value);
+      morseOutput.textContent = morse || '—';
+    });
+
+    document.getElementById('encodePlay').addEventListener('click', ()=>{
+      const morse = encodeTextToMorse(textInput.value);
+      morseOutput.textContent = morse || '—';
+      if(morse) playMorse(morse);
+    });
+
+    document.getElementById('decodeBtn').addEventListener('click', ()=>{
+      const decoded = decodeMorseToText(morseInput.value);
+      decodedOutput.textContent = decoded || '—';
+    });
+
+    document.getElementById('decodePlay').addEventListener('click', ()=>{
+      const decoded = decodeMorseToText(morseInput.value);
+      decodedOutput.textContent = decoded || '—';
+      if(morseInput.value.trim()) playMorse(morseInput.value.trim());
+    });
+
+    document.getElementById('clearText').addEventListener('click', ()=>{ textInput.value=''; morseOutput.textContent=''; });
+    document.getElementById('clearMorse').addEventListener('click', ()=>{ morseInput.value=''; decodedOutput.textContent=''; });
+
+    morseInput.addEventListener('input', ()=>{ morseInput.value = morseInput.value.replace(/•/g, '.'); });
+
+    textInput.value = 'Hello, world!';
+    document.getElementById('encodeBtn').click();
+  </script>
+</body>
+</html>
